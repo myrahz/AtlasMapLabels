@@ -52,6 +52,11 @@ public class AtlasMapLabelsSettings : ISettings
     public List<string> HighlightedIds { get; set; } = new()
     {
         "InfiniteHungerBoss", "BlackStarBoss", "MapWorldsCitySquare", "MapWorldsGrotto", "MapWorldsArsenal",
+        "RandomContentVentorsStrongbox", "RandomContentVaalTraderJewellery", "RandomContentVaalTraderWeapons",
+        "RandomContentVaalTraderArmour", "RandomContentUntaintedParadise", "RandomContentUniqueVaalSacrifice",
+        "RandomContentReflectingMist", "RandomContentPerandus", "RandomContentNamelessSeer", "RandomContentLogbook",
+        "RandomContentHarvestGrove", "RandomContentBlueprintWing", "RandomContentBetrayalSafeHouseLaboratory",
+        "RandomContentBetrayalSafeHouseFortress", "RandomContentBetrayalSafeHouseCaravan", "RandomContentBetrayalSafeHouseAssassins",
     };
 
     /// <summary>Node Ids whose "Show on Atlas" is unticked in the map list. Saved with the settings.</summary>
@@ -61,6 +66,9 @@ public class AtlasMapLabelsSettings : ISettings
         "BlightedMap", "LegionDomain", "CatarinaBoss", "BenevolenceBoss",
         "ElderWatchstoneSlotNode", "CleansingFireWatchstoneSlotNode", "TangledWatchstoneSlotNode", "MavenWatchstoneSlotNode",
         "AtziriBoss", "IncursionTemple", "BreachlordBoss", "KingInTheMistsBoss", "OshabiBoss",
+        "UltimatumTrial", "FaridunBoss", "SirusBoss", "ReliquaryVault", "Synthesis_MapGuardian1", "Synthesis_MapGuardian2",
+        "Synthesis_MapGuardian4", "Synthesis_MapGuardian3", "UberCortexBoss", "Synthesis_MapBoss", "ValdoMap", "Simulacrum",
+        "AbyssLeagueBoss3",
     };
 
     /// <summary>Node Ids ticked "Path" in the map list window. Saved with the settings.</summary>
