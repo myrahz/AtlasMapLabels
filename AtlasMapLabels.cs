@@ -254,6 +254,9 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
             y = top;
         }
 
+        x += Settings.TierSummaryOffsetX.Value;
+        y += Settings.TierSummaryOffsetY.Value;
+
         foreach (var (text, color) in lines)
         {
             var size = Graphics.MeasureText(text);

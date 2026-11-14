@@ -120,6 +120,12 @@ public class AtlasMapLabelsSettings : ISettings
     [Menu("Show Tier Summary", "A list centred below the Atlas objective counter (beside the tree selector buttons if the counter can't be found): one row per tier, lowest first, with how many uncompleted maps are left in it.")]
     public ToggleNode ShowTierSummary { get; set; } = new(true);
 
+    [Menu("Tier Summary X Offset (px)", "Moves the tier summary list right (positive) or left (negative) from its normal position.")]
+    public RangeNode<int> TierSummaryOffsetX { get; set; } = new(0, -300, 300);
+
+    [Menu("Tier Summary Y Offset (px)", "Moves the tier summary list down (positive) or up (negative) from its normal position, e.g. to clear something the game draws there.")]
+    public RangeNode<int> TierSummaryOffsetY { get; set; } = new(30, -300, 300);
+
     [Menu("Lowest Tiers (N)", "How many of the lowest tiers that still have uncompleted maps are listed in the summary and marked on the Atlas. 0 turns both off.")]
     public RangeNode<int> LowestTierCount { get; set; } = new(3, 0, 16);
 
