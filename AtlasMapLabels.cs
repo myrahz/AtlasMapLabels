@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using ExileCore;
@@ -131,7 +131,7 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
             // "Show on Atlas" unticked in the map list: nothing is drawn for this node, even if it is
             // also ticked Highlight. (A pathed route still draws through it.)
             if (Settings.HiddenIds.Contains(node.Id)) continue;
-            var completed = _completedIds.Contains(node.Id);
+            var completed = IsDone(node);
             if (completed && Settings.OnlyUncompleted) continue;
 
             var name = DisplayName(node);
@@ -190,9 +190,14 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
     private bool IsUncompletedTieredMap(AtlasNode n) =>
         n.BaseTier > 0 && !n.IsUniqueMap && !string.IsNullOrEmpty(n.Area?.Name) && IsListed(n)
         && GroupEnabled(n) && !Settings.HiddenIds.Contains(n.Id)
-        && !_completedIds.Contains(n.Id) && CountsTowardShop(n) != ShopCount.No;
+        && CountsTowardShop(n) != ShopCount.No && !IsDone(n);
 
     private bool IsInLowestTiers(AtlasNode n) => IsUncompletedTieredMap(n) && _lowestTiers.Contains(n.BaseTier);
+
+    /// <summary>Done for the purpose of the 100 objectives: an objective node is done once it is on the
+    /// game's BonusCompletedNodes list; anything else falls back to CompletedNodes.</summary>
+    private bool IsDone(AtlasNode n) =>
+        CountsTowardShop(n) == ShopCount.No ? _completedIds.Contains(n.Id) : _bonusIds.Contains(n.Id);
 
     private void RefreshTierSummary()
     {
@@ -412,11 +417,11 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
     /// put it on the bonus list, and not if it is completed but absent from it.</summary>
     private ShopCount CountsTowardShop(AtlasNode node)
     {
-        if (node.IsUniqueMap || node.Area == null || string.IsNullOrEmpty(node.Area.Name) || node.BaseTier <= 0)
+        if (node.IsUniqueMap || node.Area == null || string.IsNullOrEmpty(node.Area.Name))
             return ShopCount.No;
+        if (node.BaseTier <= 0) return ShopCount.No;
         if (node.BaseTier < 16) return ShopCount.Yes;
         if (_bonusIds.Contains(node.Id)) return ShopCount.Yes;
-        if (_completedIds.Contains(node.Id)) return ShopCount.No;
         // Not in the data directly, but the area level separates them: the 4 T16 maps that count
         // (Park, Arsenal, Primordial Pool, Grotto) are level 71-80; the other T16 nodes (Vaal Temple,
         // Sanctuary, Citadel, Fortress, Abomination, Ziggurat, Hydra, Chimera, Minotaur, Phoenix) are 83-84.
@@ -778,8 +783,8 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
             {
                 if (!GroupEnabled(node)) continue;
                 var name = DisplayName(node);
-                var completed = _completedIds.Contains(node.Id);
                 var counts = CountsTowardShop(node);
+                var completed = IsDone(node);
                 var hidden = Settings.HiddenIds.Contains(node.Id);
                 if (_listShow == 1 && !completed) continue;
                 if (_listShow == 2 && completed) continue;
