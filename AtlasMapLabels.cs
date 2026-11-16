@@ -113,6 +113,7 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
         RefreshTierSummary();
         RefreshPaths();
         DrawPaths(children);
+        DrawMavenFarm(children);
         // When Kirac's shop window is open it carries the message itself; don't draw it twice.
         if (Settings.ShowShopPanel && _kiracWindow == null && !ObjectivesMaxed) DrawShopPanel(children);
         if (Settings.ShowTierSummary && !ObjectivesMaxed) DrawTierSummary(atlas, children);
@@ -629,6 +630,8 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
         ImGui.Separator();
         DrawShopSummary();
         ImGui.Separator();
+        DrawMavenFarmEditor();
+        ImGui.Separator();
         ImGui.TextUnformatted("Maps");
         DrawMapList();
     }
@@ -716,6 +719,100 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
         }
     }
 
+    // Maven farm: the user's ordered list of maps; the first one the Maven hasn't witnessed yet is marked.
+    // Witnessed state is ServerData.MavenWitnessedAreas (WorldAreas), matched to a node by its Area Id.
+    private HashSet<string> _witnessedAreaIds = new();
+    private DateTime _witnessedAt = DateTime.MinValue;
+
+    private void RefreshWitnessed()
+    {
+        if ((DateTime.UtcNow - _witnessedAt).TotalMilliseconds < 500) return;
+        _witnessedAt = DateTime.UtcNow;
+        var areas = GameController.IngameState?.ServerData?.MavenWitnessedAreas;
+        if (areas == null) return;
+        _witnessedAreaIds = areas.Where(a => a != null && !string.IsNullOrEmpty(a.Id)).Select(a => a.Id).ToHashSet();
+    }
+
+    private bool IsWitnessed(AtlasNode n) =>
+        n.Area != null && !string.IsNullOrEmpty(n.Area.Id) && _witnessedAreaIds.Contains(n.Area.Id);
+
+    /// <summary>The farm list resolved to nodes, in the user's order (ids that no longer exist are skipped).</summary>
+    private List<AtlasNode> MavenFarmNodes()
+    {
+        var byId = _allMaps.ToDictionary(n => n.Id);
+        var list = new List<AtlasNode>();
+        foreach (var id in Settings.MavenFarmIds)
+            if (byId.TryGetValue(id, out var n)) list.Add(n);
+        return list;
+    }
+
+    private void DrawMavenFarm(IList<Element> children)
+    {
+        if (!Settings.MavenFarm || Settings.MavenFarmIds.Count == 0) return;
+        RefreshWitnessed();
+
+        var farm = MavenFarmNodes();
+        var next = farm.FirstOrDefault(n => !IsWitnessed(n));
+        if (next == null) return;
+        if (!_linkById.TryGetValue(next.Id, out var link) || link.ChildIndex >= children.Count) return;
+        var element = children[link.ChildIndex];
+        if (element == null || !element.IsVisible) return;
+
+        var rect = element.GetClientRect();
+        var pad = 8f;
+        var box = new RectangleF(rect.X - pad, rect.Y - pad, rect.Width + pad * 2, rect.Height + pad * 2);
+        if (Blocked(box)) return;
+
+        var c = Settings.MavenFarmColor.Value;
+        Graphics.DrawBox(box, new Color(c.R, c.G, c.B, (byte)70));
+        Graphics.DrawFrame(box, c, 3);
+
+        var witnessed = farm.Count(IsWitnessed);
+        var text = $"Maven: {DisplayName(next)} ({witnessed}/{farm.Count})";
+        var size = Graphics.MeasureText(text);
+        var pos = new Vector2(rect.X + rect.Width / 2f - size.X / 2f, box.Bottom + 2);
+        var labelBox = new RectangleF(pos.X - 2, pos.Y - 1, size.X + 4, size.Y + 2);
+        if (Blocked(labelBox) || TextBlocked(labelBox)) return;
+        Graphics.DrawBox(labelBox, new Color(0, 0, 0, 190));
+        Graphics.DrawText(text, pos, c);
+    }
+
+    private void DrawMavenFarmEditor()
+    {
+        if (!ImGui.CollapsingHeader("Maven farm (ordered list)")) return;
+        RefreshWitnessed();
+
+        var farm = Settings.MavenFarmIds;
+        var byId = _allMaps.ToDictionary(n => n.Id);
+        var nextId = MavenFarmNodes().FirstOrDefault(n => !IsWitnessed(n))?.Id;
+
+        ImGui.TextDisabled("Order = farm order. The first map the Maven hasn't witnessed is highlighted on the Atlas. Add maps with the 'Maven' tick in the Maps table below.");
+        if (farm.Count < 10) ImGui.TextColored(new System.Numerics.Vector4(1f, 0.7f, 0.2f, 1f), $"{farm.Count}/10 maps chosen (pick at least 10).");
+        if (ImGui.Button("Clear farm list")) farm.Clear();
+
+        string remove = null;
+        int moveUp = -1, moveDown = -1;
+        for (var i = 0; i < farm.Count; i++)
+        {
+            ImGui.PushID("farm" + i);
+            var id = farm[i];
+            byId.TryGetValue(id, out var node);
+            if (ImGui.SmallButton("^") && i > 0) moveUp = i;
+            ImGui.SameLine();
+            if (ImGui.SmallButton("v") && i < farm.Count - 1) moveDown = i;
+            ImGui.SameLine();
+            if (ImGui.SmallButton("x")) remove = id;
+            ImGui.SameLine();
+            var name = node != null ? DisplayName(node) : id;
+            var state = node == null ? "unknown" : IsWitnessed(node) ? "witnessed" : id == nextId ? "NEXT" : "pending";
+            ImGui.TextUnformatted($"{i + 1}. {name}{(node != null && node.BaseTier > 0 ? " T" + node.BaseTier : "")}  [{state}]");
+            ImGui.PopID();
+        }
+        if (moveUp > 0) (farm[moveUp - 1], farm[moveUp]) = (farm[moveUp], farm[moveUp - 1]);
+        else if (moveDown >= 0) (farm[moveDown + 1], farm[moveDown]) = (farm[moveDown], farm[moveDown + 1]);
+        if (remove != null) farm.Remove(remove);
+    }
+
     private bool TryGetCenter(AtlasNode node, IList<Element> children, out Vector2 center, out RectangleF rect)
     {
         center = default;
@@ -728,6 +825,33 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
         return true;
     }
 
+    // Quadrants. The game data has no node-to-quadrant link (verified live), so a node's quadrant comes from
+    // where it sits relative to the middle of all placed tiered maps, unless the user picked one by hand.
+    // Maps close to a dividing line are flagged uncertain.
+    private static readonly string[] QuadrantCodes = { "NW", "NE", "SW", "SE" };
+
+    // The dividing lines, fitted to 38 hand-validated labels: the vertical line lies between x=515.0 and
+    // 521.1 and the horizontal one between y=487.7 and 511.5 (no other map sits inside those bands).
+    private Vector2 QuadrantCentre() => new(Settings.QuadrantCentreX.Value, Settings.QuadrantCentreY.Value);
+
+    private string QuadrantOf(AtlasNode n, out bool uncertain)
+    {
+        uncertain = false;
+        if (Settings.QuadrantOverrides.TryGetValue(n.Id, out var set) && Array.IndexOf(QuadrantCodes, set) >= 0) return set;
+        var c = QuadrantCentre();
+        var margin = Settings.QuadrantAxisMargin.Value;
+        uncertain = Math.Abs(n.PosX - c.X) < margin || Math.Abs(n.PosY - c.Y) < margin;
+        return (n.PosY < c.Y ? "N" : "S") + (n.PosX < c.X ? "W" : "E");
+    }
+
+    private string QuadrantText(AtlasNode n)
+    {
+        var q = QuadrantOf(n, out var unsure);
+        return unsure ? q + "?" : q;
+    }
+
+    private int _listQuadrant; // 0 all, 1..4 = QuadrantCodes[i - 1]
+
     private static readonly System.Text.RegularExpressions.Regex TierQuery =
         new(@"^[tT]?(\d{1,2})$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
@@ -739,6 +863,7 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
         var query = _listFilter.Trim();
         if (query.Length == 0) return true;
         if (name.Contains(query, StringComparison.OrdinalIgnoreCase)) return true;
+        if (Array.IndexOf(QuadrantCodes, query.ToUpperInvariant()) >= 0) return false; // quadrant text is matched by the caller
         var m = TierQuery.Match(query);
         return m.Success && tier > 0 && int.Parse(m.Groups[1].Value) == tier;
     }
@@ -753,6 +878,9 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
         ImGui.SameLine();
         ImGui.SetNextItemWidth(110);
         ImGui.Combo("##sort", ref _listSort, "By name\0Nearest first\0");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(90);
+        ImGui.Combo("##quad", ref _listQuadrant, "Any quadrant\0NW\0NE\0SW\0SE\0");
 
         if (ImGui.Button("Clear highlights")) Settings.HighlightedIds.Clear();
         ImGui.SameLine();
@@ -763,13 +891,15 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
 
         var tableFlags = ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY
                          | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Resizable;
-        if (ImGui.BeginTable("##maps", 6, tableFlags, new Vector2(0, 420)))
+        if (ImGui.BeginTable("##maps", 8, tableFlags, new Vector2(0, 420)))
         {
             ImGui.TableSetupScrollFreeze(0, 1); // keep the header row visible while scrolling
             ImGui.TableSetupColumn("Highlight");
             ImGui.TableSetupColumn("Path");
+            ImGui.TableSetupColumn("Maven");
             ImGui.TableSetupColumn("Show on Atlas");
             ImGui.TableSetupColumn("Map", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("Quadrant");
             ImGui.TableSetupColumn("Tier");
             ImGui.TableSetupColumn("Info");
             ImGui.TableHeadersRow();
@@ -790,7 +920,10 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
                 if (_listShow == 2 && completed) continue;
                 if (_listShow == 3 && (completed || counts == ShopCount.No)) continue;
                 if (_listShow == 4 && !hidden) continue;
-                if (!MatchesFilter(name, node.BaseTier)) continue;
+                var quadrant = QuadrantOf(node, out var quadrantUnsure);
+                var typed = _listFilter.Trim();
+                if (!MatchesFilter(name, node.BaseTier) && !string.Equals(typed, quadrant, StringComparison.OrdinalIgnoreCase)) continue;
+                if (_listQuadrant > 0 && quadrant != QuadrantCodes[_listQuadrant - 1]) continue;
 
                 ImGui.PushID(node.Id);
                 ImGui.TableNextRow();
@@ -804,11 +937,26 @@ public class AtlasMapLabels : BaseSettingsPlugin<AtlasMapLabelsSettings>
                 if (ImGui.Checkbox("##path", ref path)) Toggle(Settings.PathedIds, node.Id, path);
 
                 ImGui.TableNextColumn();
+                var farm = Settings.MavenFarmIds.Contains(node.Id);
+                if (ImGui.Checkbox("##maven", ref farm)) Toggle(Settings.MavenFarmIds, node.Id, farm);
+
+                ImGui.TableNextColumn();
                 var show = !hidden;
                 if (ImGui.Checkbox("##show", ref show)) Toggle(Settings.HiddenIds, node.Id, !show);
 
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(name);
+
+                ImGui.TableNextColumn();
+                var picked = Settings.QuadrantOverrides.ContainsKey(node.Id);
+                ImGui.SetNextItemWidth(64);
+                if (ImGui.BeginCombo("##quadrant", quadrant + (quadrantUnsure ? "?" : "")))
+                {
+                    if (ImGui.Selectable("Auto", !picked)) Settings.QuadrantOverrides.Remove(node.Id);
+                    foreach (var code in QuadrantCodes)
+                        if (ImGui.Selectable(code, picked && quadrant == code)) Settings.QuadrantOverrides[node.Id] = code;
+                    ImGui.EndCombo();
+                }
 
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(node.BaseTier > 0 ? "T" + node.BaseTier : string.Empty);

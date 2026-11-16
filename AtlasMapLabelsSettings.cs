@@ -78,6 +78,29 @@ public class AtlasMapLabelsSettings : ISettings
         "InfiniteHungerBoss", "BlackStarBoss", "MapWorldsPrimordialPool", "MapWorldsGrotto", "MapWorldsArsenal",
     };
 
+    [Menu("Quadrant Centre X", "The game data has no node-to-quadrant link, so a map's quadrant comes from its position relative to two dividing lines. This is the vertical line (fitted to hand-checked labels: valid between 515 and 521).")]
+    public RangeNode<int> QuadrantCentreX { get; set; } = new(518, 300, 700);
+
+    [Menu("Quadrant Centre Y", "The horizontal dividing line (fitted to hand-checked labels: valid between 488 and 511).")]
+    public RangeNode<int> QuadrantCentreY { get; set; } = new(500, 300, 700);
+
+    [Menu("Quadrant Axis Margin", "Maps closer than this many atlas units to a dividing line are shown with a '?'. 0 = off (the default lines separate every map unambiguously). Pick a quadrant in the map list to override one.")]
+    public RangeNode<int> QuadrantAxisMargin { get; set; } = new(0, 0, 150);
+
+    /// <summary>Node Id to quadrant code (NW, NE, SW, SE) chosen by hand in the map list. Saved with the settings.</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, string> QuadrantOverrides { get; set; } = new();
+
+    [Menu("Maven Farm","Highlights, on the Atlas, the first map of your Maven farm list (set below the settings, in the map list window) that the Maven has not witnessed yet.")]
+    public ToggleNode MavenFarm { get; set; } = new(true);
+
+    [Menu("Maven Farm Color")]
+    public ColorNode MavenFarmColor { get; set; } = new(new Color(190, 80, 255, 255));
+
+    /// <summary>Ordered node Ids of the Maven farm list. Saved with the settings.</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<string> MavenFarmIds { get; set; } = new();
+
     [Menu("Show Kirac Shop Panel", "Two lines above the Atlas's own objective counter: the highest map tier Kirac's shop offers, and the next tier with how many more objectives it needs.")]
     public ToggleNode ShowShopPanel { get; set; } = new(true);
 
