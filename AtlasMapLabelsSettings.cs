@@ -57,6 +57,7 @@ public class AtlasMapLabelsSettings : ISettings
         "RandomContentReflectingMist", "RandomContentPerandus", "RandomContentNamelessSeer", "RandomContentLogbook",
         "RandomContentHarvestGrove", "RandomContentBlueprintWing", "RandomContentBetrayalSafeHouseLaboratory",
         "RandomContentBetrayalSafeHouseFortress", "RandomContentBetrayalSafeHouseCaravan", "RandomContentBetrayalSafeHouseAssassins",
+        "RandomContentRandomSupporterHideout",
     };
 
     /// <summary>Node Ids whose "Show on Atlas" is unticked in the map list. Saved with the settings.</summary>
